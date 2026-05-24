@@ -24,15 +24,16 @@ func (r CreateTestRequest) Validate() error {
 }
 
 type TestStatus struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace"`
-	Phase       string `json:"phase"`
-	Parallelism int    `json:"parallelism"`
-	StartedAt   string `json:"startedAt,omitempty"`
-	FinishedAt  string `json:"finishedAt,omitempty"`
-	ConfigMap   string `json:"configMap"`
-	Script      string `json:"scriptFile"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Namespace     string `json:"namespace"`
+	Phase         string `json:"phase"`
+	Parallelism   int    `json:"parallelism"`
+	StartedAt     string `json:"startedAt,omitempty"`
+	FinishedAt    string `json:"finishedAt,omitempty"`
+	ConfigMap     string `json:"configMap"`
+	Script        string `json:"scriptFile"`
+	ScriptContent string `json:"script,omitempty"`
 }
 
 type ErrorResponse struct {

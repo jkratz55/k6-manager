@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -113,7 +114,20 @@ func (k *K6Service) GetTest(ctx context.Context, id string) (*TestStatus, error)
 		return nil, fmt.Errorf("get testrun %s/%s: %w", namespace, id, err)
 	}
 
-	return mapToTestStatus(item), nil
+	status := mapToTestStatus(item)
+
+	if status.ConfigMap != "" {
+		cm, err := k.client.CoreV1().ConfigMaps(namespace).Get(ctx, status.ConfigMap, metav1.GetOptions{})
+		if err == nil {
+			status.ScriptContent = cm.Data[status.Script]
+		} else {
+			Logger().Warn("Failed to fetch script from configmap",
+				slog.String("configmap", status.ConfigMap),
+				slog.Any("error", err))
+		}
+	}
+
+	return status, nil
 }
 
 func (k *K6Service) DeleteTest(ctx context.Context, id string) error {
