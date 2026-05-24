@@ -8,12 +8,12 @@ import (
 )
 
 type CreateTestRequest struct {
-	Name        string                `form:"name"`
-	Parallelism int                   `form:"parallelism"`
-	Script      *multipart.FileHeader `form:"script"`
-	RunnerImage string                `form:"runnerImage"`
-	EnvVars     map[string]string     `form:"envVars"`
-	Args        string                `form:"args"`
+	Name        string                `form:"name" json:"name"`
+	Parallelism int                   `form:"parallelism" json:"parallelism"`
+	Script      *multipart.FileHeader `form:"script" json:"script"`
+	RunnerImage string                `form:"runnerImage" json:"runnerImage"`
+	EnvVars     map[string]string     `form:"envVars" json:"envVars"`
+	Args        string                `form:"args" json:"args"`
 }
 
 func (r CreateTestRequest) Validate() error {

@@ -268,12 +268,6 @@ func extractPhase(obj *unstructured.Unstructured) string {
 	return phase
 }
 
-// extractTime pulls a timestamp field from metadata or status.
-func extractTime(obj *unstructured.Unstructured, fields ...string) string {
-	t, _, _ := unstructured.NestedString(obj.Object, fields...)
-	return t
-}
-
 func extractFinishedAt(obj *unstructured.Unstructured) string {
 	phase := extractPhase(obj)
 	if !isTestFinished(phase) {

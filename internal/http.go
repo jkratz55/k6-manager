@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -57,7 +58,8 @@ func (h *Handler) createTest(c *echo.Context) error {
 		return InternalServerError()
 	}
 
-	return c.JSON(http.StatusCreated, res)
+	c.Response().Header().Set(echo.HeaderLocation, fmt.Sprintf("/tests/%s", res))
+	return c.NoContent(http.StatusCreated)
 }
 
 func (h *Handler) deleteTest(c *echo.Context) error {
