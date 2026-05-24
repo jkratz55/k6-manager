@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"log/slog"
+	"time"
 
 	"github.com/labstack/echo/v5"
 
@@ -39,6 +41,22 @@ func main() {
 
 	handler := internal.NewHandler(k6Service)
 	handler.RegisterRoutes(e)
+
+	go func() {
+		logger.Info("Starting background cleanup worker")
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				logger.Info("Running background cleanup")
+				if err := k6Service.CleanupTests(context.Background(), 7*24*time.Hour); err != nil {
+					logger.Error("Background cleanup failed", slog.Any("error", err))
+				}
+			}
+		}
+	}()
 
 	logger.Info("Starting HTTP server on port 8080")
 	if err := e.Start(":8080"); err != nil {

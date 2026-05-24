@@ -149,6 +149,40 @@ func (k *K6Service) DeleteTest(ctx context.Context, id string) error {
 	return nil
 }
 
+func (k *K6Service) CleanupTests(ctx context.Context, olderThan time.Duration) error {
+	namespace := k.conf.Namespace
+	logger := Logger()
+
+	list, err := k.dynamicClient.
+		Resource(TestRunGVR).
+		Namespace(namespace).
+		List(ctx, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", "app.kubernetes.io/managed-by", managedByValue),
+		})
+	if err != nil {
+		return fmt.Errorf("list testruns for cleanup: %w", err)
+	}
+
+	cutoff := time.Now().Add(-olderThan)
+	for _, item := range list.Items {
+		created := item.GetCreationTimestamp().Time
+		if created.Before(cutoff) {
+			id := item.GetName()
+			logger.Info("Cleaning up old test",
+				slog.String("id", id),
+				slog.Time("created", created))
+			if err := k.DeleteTest(ctx, id); err != nil {
+				logger.Error("Failed to delete old test during cleanup",
+					slog.String("id", id),
+					slog.Any("error", err))
+				continue
+			}
+		}
+	}
+
+	return nil
+}
+
 func mapToTestStatus(item *unstructured.Unstructured) *TestStatus {
 	parallelism, _, _ := unstructured.NestedInt64(item.Object, "spec", "parallelism")
 	configMap, _, _ := unstructured.NestedString(item.Object, "spec", "script", "configMap", "name")

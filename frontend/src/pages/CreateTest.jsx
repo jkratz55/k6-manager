@@ -22,7 +22,7 @@ const CreateTest = () => {
   const [formData, setFormData] = useState({
     name: '',
     parallelism: 1,
-    runnerImage: 'grafana/k6:latest',
+    runnerImage: '',
     args: '',
   });
   
