@@ -25,36 +25,46 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 func (h *Handler) getTests(c *echo.Context) error {
 	res, err := h.service.GetTests(c.Request().Context())
 	if err != nil {
-		return err // TODO: proper error handling
+		Logger().Error("Failed to list tests", slog.Any("error", err))
+		return InternalServerError()
 	}
 	return c.JSON(http.StatusOK, res)
 }
 
 func (h *Handler) getTest(c *echo.Context) error {
-	panic("implement me")
+	id := c.Param("id")
+	res, err := h.service.GetTest(c.Request().Context(), id)
+	if err != nil {
+		Logger().Error("Failed to get test", slog.String("id", id), slog.Any("error", err))
+		return InternalServerError()
+	}
+	return c.JSON(http.StatusOK, res)
 }
 
 func (h *Handler) createTest(c *echo.Context) error {
 	var req CreateTestRequest
-	err := c.Bind(&req)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadGateway, err.Error()) // todo: proper error handling
+	if err := c.Bind(&req); err != nil {
+		return BadRequest()
 	}
 
-	err = c.Validate(req)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error()) // todo: proper error handling
+	if err := c.Validate(req); err != nil {
+		return UnprocessableEntity(err)
 	}
 
 	res, err := h.service.CreateTest(c.Request().Context(), req)
 	if err != nil {
 		Logger().Error("Failed to create test", slog.Any("error", err))
-		return err // todo: proper error handling
+		return InternalServerError()
 	}
 
-	return c.JSON(http.StatusCreated, res) // todo: set Location header
+	return c.JSON(http.StatusCreated, res)
 }
 
 func (h *Handler) deleteTest(c *echo.Context) error {
-	panic("implement me")
+	id := c.Param("id")
+	if err := h.service.DeleteTest(c.Request().Context(), id); err != nil {
+		Logger().Error("Failed to delete test", slog.String("id", id), slog.Any("error", err))
+		return InternalServerError()
+	}
+	return c.NoContent(http.StatusNoContent)
 }

@@ -68,7 +68,7 @@ func (k *K6Service) CreateTest(ctx context.Context, req CreateTestRequest) (stri
 	Logger().Info(fmt.Sprintf("Created configmap %s/%s", namespace, name))
 
 	tr := buildTestRun(req, name, namespace, k.conf.DefaultRunnerImage)
-	created, err := k.dynamicClient.
+	_, err = k.dynamicClient.
 		Resource(TestRunGVR).
 		Namespace(namespace).
 		Create(ctx, tr, metav1.CreateOptions{})
@@ -78,7 +78,7 @@ func (k *K6Service) CreateTest(ctx context.Context, req CreateTestRequest) (stri
 
 	Logger().Info(fmt.Sprintf("Created testrun %s/%s", namespace, name))
 
-	return string(created.GetUID()), nil
+	return name, nil
 }
 
 func (k *K6Service) GetTests(ctx context.Context) (any, error) {
@@ -96,32 +96,61 @@ func (k *K6Service) GetTests(ctx context.Context) (any, error) {
 
 	results := make([]TestStatus, 0, len(list.Items))
 	for _, item := range list.Items {
-		parallelism, _, _ := unstructured.NestedInt64(item.Object, "spec", "parallelism")
-		configMap, _, _ := unstructured.NestedString(item.Object, "spec", "script", "configMap", "name")
-		scriptFile, _, _ := unstructured.NestedString(item.Object, "spec", "script", "configMap", "file")
-
-		results = append(results, TestStatus{
-			ID:          string(item.GetUID()),
-			Name:        item.GetName(),
-			Namespace:   item.GetNamespace(),
-			Phase:       extractPhase(&item),
-			Parallelism: int(parallelism),
-			StartedAt:   item.GetCreationTimestamp().UTC().Format(time.RFC3339),
-			FinishedAt:  extractFinishedAt(&item),
-			ConfigMap:   configMap,
-			Script:      scriptFile,
-		})
+		results = append(results, *mapToTestStatus(&item))
 	}
 
 	return results, nil
 }
 
-func (k *K6Service) GetTest(id string) {
-	panic("implement me")
+func (k *K6Service) GetTest(ctx context.Context, id string) (*TestStatus, error) {
+	namespace := k.conf.Namespace
+
+	item, err := k.dynamicClient.
+		Resource(TestRunGVR).
+		Namespace(namespace).
+		Get(ctx, id, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get testrun %s/%s: %w", namespace, id, err)
+	}
+
+	return mapToTestStatus(item), nil
 }
 
-func (k *K6Service) DeleteTest(id string) {
-	panic("implement me")
+func (k *K6Service) DeleteTest(ctx context.Context, id string) error {
+	namespace := k.conf.Namespace
+
+	if err := k.client.CoreV1().
+		ConfigMaps(namespace).
+		Delete(ctx, id, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("delete configmap %s/%s: %w", namespace, id, err)
+	}
+
+	if err := k.dynamicClient.
+		Resource(TestRunGVR).
+		Namespace(namespace).
+		Delete(ctx, id, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("delete testrun %s/%s: %w", namespace, id, err)
+	}
+
+	return nil
+}
+
+func mapToTestStatus(item *unstructured.Unstructured) *TestStatus {
+	parallelism, _, _ := unstructured.NestedInt64(item.Object, "spec", "parallelism")
+	configMap, _, _ := unstructured.NestedString(item.Object, "spec", "script", "configMap", "name")
+	scriptFile, _, _ := unstructured.NestedString(item.Object, "spec", "script", "configMap", "file")
+
+	return &TestStatus{
+		ID:          item.GetName(),
+		Name:        item.GetName(),
+		Namespace:   item.GetNamespace(),
+		Phase:       extractPhase(item),
+		Parallelism: int(parallelism),
+		StartedAt:   item.GetCreationTimestamp().UTC().Format(time.RFC3339),
+		FinishedAt:  extractFinishedAt(item),
+		ConfigMap:   configMap,
+		Script:      scriptFile,
+	}
 }
 
 func generateName(base string) string {
@@ -177,23 +206,23 @@ func buildTestRun(req CreateTestRequest, name, namespace, defaultImage string) *
 	}
 
 	// Build env var list
-	envVars := []interface{}{}
+	envVars := []any{}
 	for k, v := range req.EnvVars {
-		envVars = append(envVars, map[string]interface{}{
+		envVars = append(envVars, map[string]any{
 			"name":  k,
 			"value": v,
 		})
 	}
 
-	spec := map[string]interface{}{
+	spec := map[string]any{
 		"parallelism": int64(parallelism),
-		"script": map[string]interface{}{
-			"configMap": map[string]interface{}{
+		"script": map[string]any{
+			"configMap": map[string]any{
 				"name": name,
 				"file": scriptFileName,
 			},
 		},
-		"runner": map[string]interface{}{
+		"runner": map[string]any{
 			"image": runnerImage,
 			"env":   envVars,
 		},
@@ -204,13 +233,13 @@ func buildTestRun(req CreateTestRequest, name, namespace, defaultImage string) *
 	}
 
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", TestRunGVR.Group, TestRunGVR.Version),
 			"kind":       "TestRun",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      name,
 				"namespace": namespace,
-				"labels": map[string]interface{}{
+				"labels": map[string]any{
 					"app.kubernetes.io/managed-by": managedByValue,
 					"k6-manager/testrun-name":      name,
 				},
@@ -254,7 +283,7 @@ func extractFinishedAt(obj *unstructured.Unstructured) string {
 	conditions, _, _ := unstructured.NestedSlice(obj.Object, "status", "conditions")
 	var latest string
 	for _, c := range conditions {
-		cond, ok := c.(map[string]interface{})
+		cond, ok := c.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -269,7 +298,7 @@ func extractFinishedAt(obj *unstructured.Unstructured) string {
 	}
 	parsed, err := time.Parse(time.RFC3339, latest)
 	if err != nil {
-		return latest // fall back to raw string if parsing fails
+		return latest
 	}
 	return parsed.Format(time.RFC3339)
 }

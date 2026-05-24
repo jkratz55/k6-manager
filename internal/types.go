@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"mime/multipart"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -35,9 +36,15 @@ type TestStatus struct {
 }
 
 type ErrorResponse struct {
-	Code    int    `json:"code"`
-	Type    string `json:"type"`
-	Message string `json:"message"`
-	Detail  string `json:"detail"`
-	Errors  map[string][]string
+	Type     string              `json:"type,omitempty"`
+	Title    string              `json:"title,omitempty"`
+	Status   int                 `json:"status,omitempty"`
+	Detail   string              `json:"detail,omitempty"`
+	Instance string              `json:"instance,omitempty"`
+	TraceID  string              `json:"traceId,omitempty"`
+	Errors   map[string][]string `json:"errors,omitempty"`
+}
+
+func (e ErrorResponse) Error() string {
+	return fmt.Sprintf("%s: %s", e.Title, e.Detail)
 }
