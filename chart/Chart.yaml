@@ -1,0 +1,19 @@
+# The chart API version. This should be v2 for Helm v3.
+apiVersion: v2
+
+# The name of the chart.
+name: k6-manager
+
+# A short description of the chart.
+description: A Helm chart for k6-manager
+
+# The type of the chart. Can be 'application' or 'library'.
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+version: 0.1.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application.
+appVersion: "1.0.0"

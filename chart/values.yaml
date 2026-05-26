@@ -1,0 +1,96 @@
+# Default values for k6-manager.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# nameOverride overrides the name of the chart.
+nameOverride: ""
+
+# fullnameOverride overrides the fully qualified name of the app.
+fullnameOverride: ""
+
+# namespaceOverride overrides the namespace.
+namespaceOverride: ""
+
+# image defines the container image to use for the application.
+image:
+  # repository is the image repository.
+  repository: "jkratz55/k6-manager"
+  # pullPolicy is the image pull policy.
+  pullPolicy: IfNotPresent
+  # tag overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+# serviceAccount defines settings for the ServiceAccount.
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# service defines settings for the Service resource.
+service:
+  # type is the Kubernetes Service type.
+  type: ClusterIP
+  # port is the port the service will listen on.
+  port: 80
+
+# resources defines compute resources for the container.
+resources:
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+  {}
+
+# nodeSelector defines node selection constraints.
+nodeSelector: {}
+
+# tolerations defines pod tolerations.
+tolerations: []
+
+# affinity defines pod affinity/anti-affinity.
+affinity: {}
+
+# ingress defines settings for the Ingress resource.
+ingress:
+  # enabled enables the Ingress resource.
+  enabled: false
+  # className is the Ingress class name.
+  className: ""
+  # annotations are the annotations to add to the Ingress.
+  annotations: {}
+  # hosts defines the hostnames and paths for the Ingress.
+  hosts:
+    - host: k6-manager.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  # tls defines TLS settings for the Ingress.
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# httproute defines settings for the HTTPRoute resource (Gateway API).
+httproute:
+  # enabled enables the HTTPRoute resource.
+  enabled: false
+  # parentRefs defines the parent resources for the HTTPRoute.
+  parentRefs: []
+  #  - name: my-gateway
+  #    namespace: gateway-system
+  # annotations are the annotations to add to the HTTPRoute.
+  annotations: {}
+  # hosts defines the hostnames for the HTTPRoute.
+  hosts:
+    - k6-manager.local
+
+# k6 defines settings for k6 execution.
+k6:
+  # defaultRunnerImage is the default image used for k6 runners if not specified in the request.
+  defaultRunnerImage: "docker.io/grafana/k6:latest"
