@@ -42,13 +42,12 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 		if p == "/" {
 			return c.FileFS("index.html", distFS)
 		}
-		// Check if file exists in FS
+
 		name := strings.TrimPrefix(p, "/")
 		_, err := fs.Stat(distFS, name)
 		if err == nil {
 			return echo.WrapHandler(fileServer)(c)
 		}
-		// If not found, serve index.html for SPA routing
 		return c.FileFS("index.html", distFS)
 	})
 }

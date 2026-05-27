@@ -297,8 +297,6 @@ func buildTestRun(req CreateTestRequest, name, namespace, defaultImage string) *
 	}
 }
 
-// isTestFinished returns true when the TestRun phase indicates completion.
-// The k6 operator uses: created → initialized → started → finished / errored
 func isTestFinished(phase string) bool {
 	switch phase {
 	case "finished", "errored", "error":
@@ -307,7 +305,6 @@ func isTestFinished(phase string) bool {
 	return false
 }
 
-// extractPhase pulls the stage/phase field from an unstructured TestRun.
 func extractPhase(obj *unstructured.Unstructured) string {
 	phase, _, _ := unstructured.NestedString(obj.Object, "status", "stage")
 	if phase == "" {
