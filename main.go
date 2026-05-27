@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 
+	"github.com/jkratz55/k6-manager/frontend"
 	"github.com/jkratz55/k6-manager/internal"
 )
 
@@ -39,8 +40,13 @@ func main() {
 	e.Validator = &internal.Validator{}
 	e.HTTPErrorHandler = internal.ProblemDetailsErrorHandler
 
+	frontend.Register(e)
+
 	handler := internal.NewHandler(k6Service)
 	handler.RegisterRoutes(e)
+
+	health := &internal.HealthHandler{}
+	health.RegisterRoutes(e)
 
 	go func() {
 		logger.Info("Starting background cleanup worker",

@@ -2,14 +2,10 @@ package internal
 
 import (
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v5"
-
-	"github.com/jkratz55/k6-manager/frontend"
 )
 
 type Handler struct {
@@ -22,38 +18,10 @@ func NewHandler(service *K6Service) *Handler {
 
 func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	api := e.Group("/api")
-	api.GET("/health", h.health)
 	api.GET("/tests", h.getTests)
 	api.GET("/tests/:id", h.getTest)
 	api.POST("/tests", h.createTest)
 	api.DELETE("/tests/:id", h.deleteTest)
-
-	distFS, err := fs.Sub(frontend.DistDir, "dist")
-	if err != nil {
-		panic(err)
-	}
-	fileServer := http.FileServer(http.FS(distFS))
-
-	e.GET("/*", func(c *echo.Context) error {
-		p := c.Request().URL.Path
-		if strings.HasPrefix(p, "/api") {
-			return echo.ErrNotFound
-		}
-		if p == "/" {
-			return c.FileFS("index.html", distFS)
-		}
-
-		name := strings.TrimPrefix(p, "/")
-		_, err := fs.Stat(distFS, name)
-		if err == nil {
-			return echo.WrapHandler(fileServer)(c)
-		}
-		return c.FileFS("index.html", distFS)
-	})
-}
-
-func (h *Handler) health(c *echo.Context) error {
-	return c.NoContent(http.StatusOK)
 }
 
 func (h *Handler) getTests(c *echo.Context) error {

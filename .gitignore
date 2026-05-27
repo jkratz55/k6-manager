@@ -6,3 +6,5 @@
 # Binaries
 k6-manager
 
+# GO
+vendor/
