@@ -43,15 +43,17 @@ func main() {
 	handler.RegisterRoutes(e)
 
 	go func() {
-		logger.Info("Starting background cleanup worker")
-		ticker := time.NewTicker(time.Hour)
+		logger.Info("Starting background cleanup worker",
+			slog.Duration("interval", config.CleanupInterval),
+			slog.Duration("retention", config.TestRetention))
+		ticker := time.NewTicker(config.CleanupInterval)
 		defer ticker.Stop()
 
 		for {
 			select {
 			case <-ticker.C:
 				logger.Info("Running background cleanup")
-				if err := k6Service.CleanupTests(context.Background(), 7*24*time.Hour); err != nil {
+				if err := k6Service.CleanupTests(context.Background(), config.TestRetention); err != nil {
 					logger.Error("Background cleanup failed", slog.Any("error", err))
 				}
 			}

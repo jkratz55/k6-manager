@@ -17,10 +17,15 @@ func NewHandler(service *K6Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(e *echo.Echo) {
+	e.GET("/health", h.health)
 	e.GET("/tests", h.getTests)
 	e.GET("/tests/:id", h.getTest)
 	e.POST("/tests", h.createTest)
 	e.DELETE("/tests/:id", h.deleteTest)
+}
+
+func (h *Handler) health(c *echo.Context) error {
+	return c.NoContent(http.StatusOK)
 }
 
 func (h *Handler) getTests(c *echo.Context) error {

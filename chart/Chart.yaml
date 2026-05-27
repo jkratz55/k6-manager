@@ -7,6 +7,13 @@ name: k6-manager
 # A short description of the chart.
 description: A Helm chart for k6-manager
 
+# A link to the project's home page.
+home: https://github.com/jkratz55/k6-manager
+
+# A list of sources where the project's code can be found.
+sources:
+  - https://github.com/jkratz55/k6-manager
+
 # The type of the chart. Can be 'application' or 'library'.
 type: application
 
