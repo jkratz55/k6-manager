@@ -2,10 +2,14 @@ package internal
 
 import (
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v5"
+
+	"github.com/jkratz55/k6-manager/frontend"
 )
 
 type Handler struct {
@@ -17,11 +21,36 @@ func NewHandler(service *K6Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(e *echo.Echo) {
-	e.GET("/health", h.health)
-	e.GET("/tests", h.getTests)
-	e.GET("/tests/:id", h.getTest)
-	e.POST("/tests", h.createTest)
-	e.DELETE("/tests/:id", h.deleteTest)
+	api := e.Group("/api")
+	api.GET("/health", h.health)
+	api.GET("/tests", h.getTests)
+	api.GET("/tests/:id", h.getTest)
+	api.POST("/tests", h.createTest)
+	api.DELETE("/tests/:id", h.deleteTest)
+
+	distFS, err := fs.Sub(frontend.DistDir, "dist")
+	if err != nil {
+		panic(err)
+	}
+	fileServer := http.FileServer(http.FS(distFS))
+
+	e.GET("/*", func(c *echo.Context) error {
+		p := c.Request().URL.Path
+		if strings.HasPrefix(p, "/api") {
+			return echo.ErrNotFound
+		}
+		if p == "/" {
+			return c.FileFS("index.html", distFS)
+		}
+		// Check if file exists in FS
+		name := strings.TrimPrefix(p, "/")
+		_, err := fs.Stat(distFS, name)
+		if err == nil {
+			return echo.WrapHandler(fileServer)(c)
+		}
+		// If not found, serve index.html for SPA routing
+		return c.FileFS("index.html", distFS)
+	})
 }
 
 func (h *Handler) health(c *echo.Context) error {
@@ -63,7 +92,7 @@ func (h *Handler) createTest(c *echo.Context) error {
 		return InternalServerError()
 	}
 
-	c.Response().Header().Set(echo.HeaderLocation, fmt.Sprintf("/tests/%s", res))
+	c.Response().Header().Set(echo.HeaderLocation, fmt.Sprintf("/api/tests/%s", res))
 	return c.NoContent(http.StatusCreated)
 }
 

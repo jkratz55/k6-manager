@@ -1,6 +1,7 @@
 # IDE
 .idea/
 .vscode/
+.junie/
 
 # Binaries
 k6-manager

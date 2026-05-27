@@ -65,7 +65,7 @@ resources: { }
 # livenessProbe defines the liveness probe for the container.
 livenessProbe:
   httpGet:
-    path: /health
+    path: /api/health
     port: http
   initialDelaySeconds: 5
   periodSeconds: 10
@@ -73,7 +73,7 @@ livenessProbe:
 # readinessProbe defines the readiness probe for the container.
 readinessProbe:
   httpGet:
-    path: /health
+    path: /api/health
     port: http
   initialDelaySeconds: 5
   periodSeconds: 10
