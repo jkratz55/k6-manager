@@ -29,11 +29,6 @@ export const createTest = async (testData) => {
   }
 
   if (testData.envVars) {
-    // Echo/ozzo-validation might expect envVars in a specific format for multipart
-    // For now let's try just appending it if it's a map
-    // Actually, multipart usually doesn't handle maps well directly
-    // Let's see how the backend expects it.
-    // internal/types.go: EnvVars map[string]string `form:"envVars" json:"envVars"`
     Object.entries(testData.envVars).forEach(([key, value]) => {
       formData.append(`envVars[${key}]`, value);
     });
