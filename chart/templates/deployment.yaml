@@ -37,9 +37,19 @@ spec:
               containerPort: 8080
               protocol: TCP
           livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
+            httpGet:
+              path: /healthz/live
+              port: http
+            {{- with .Values.livenessProbe }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+            httpGet:
+              path: /healthz/ready
+              port: http
+            {{- with .Values.readinessProbe }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           env:
             - name: K6_NAMESPACE
               valueFrom:

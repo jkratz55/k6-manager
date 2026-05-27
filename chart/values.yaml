@@ -1,7 +1,3 @@
-# Default values for k6-manager.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
 # nameOverride overrides the name of the chart.
 nameOverride: ""
 
@@ -14,23 +10,21 @@ namespaceOverride: ""
 # image defines the container image to use for the application.
 image:
   # repository is the image repository.
-  repository: "jkratz55/k6-manager"
+  repository: "ghcr.io/jkratz55/k6-manager"
   # pullPolicy is the image pull policy.
   pullPolicy: IfNotPresent
   # tag overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "0.1.0"
 
 # imagePullSecrets is a list of secret names to use for pulling the image.
 imagePullSecrets: []
 
 # serviceAccount defines settings for the ServiceAccount.
 serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  # If not set, a name is generated using the fullname template
   name: ""
 
 # podAnnotations defines annotations to add to the pod.
@@ -64,17 +58,11 @@ resources: { }
 
 # livenessProbe defines the liveness probe for the container.
 livenessProbe:
-  httpGet:
-    path: /api/health
-    port: http
   initialDelaySeconds: 5
   periodSeconds: 10
 
 # readinessProbe defines the readiness probe for the container.
 readinessProbe:
-  httpGet:
-    path: /api/health
-    port: http
   initialDelaySeconds: 5
   periodSeconds: 10
 
