@@ -68,7 +68,7 @@ func (k *K6Service) CreateTest(ctx context.Context, req CreateTestRequest) (stri
 
 	Logger().Info(fmt.Sprintf("Created configmap %s/%s", namespace, name))
 
-	tr := buildTestRun(req, name, namespace, k.conf.DefaultRunnerImage)
+	tr := buildTestRun(req, name, namespace, k.conf.DefaultRunnerImage, k.conf.DefaultStarterImage)
 	_, err = k.dynamicClient.
 		Resource(TestRunGVR).
 		Namespace(namespace).
@@ -242,7 +242,7 @@ func buildConfigMap(name, namespace, script string) *corev1.ConfigMap {
 	}
 }
 
-func buildTestRun(req CreateTestRequest, name, namespace, defaultImage string) *unstructured.Unstructured {
+func buildTestRun(req CreateTestRequest, name, namespace, defaultImage, defaultStarterImage string) *unstructured.Unstructured {
 	parallelism := req.Parallelism
 	if parallelism <= 0 {
 		parallelism = 1
@@ -274,6 +274,12 @@ func buildTestRun(req CreateTestRequest, name, namespace, defaultImage string) *
 			"image": runnerImage,
 			"env":   envVars,
 		},
+	}
+
+	if defaultStarterImage != "" {
+		spec["starter"] = map[string]any{
+			"image": defaultStarterImage,
+		}
 	}
 
 	if req.Args != "" {

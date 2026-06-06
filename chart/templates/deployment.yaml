@@ -57,6 +57,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: K6_DEFAULT_RUNNER_IMAGE
               value: {{ .Values.k6.defaultRunnerImage | quote }}
+            - name: K6_DEFAULT_STARTER_IMAGE
+              value: {{ .Values.k6.defaultStarterImage | quote }}
             - name: CLEANUP_INTERVAL
               value: {{ .Values.k6.cleanupInterval | quote }}
             - name: TEST_RETENTION

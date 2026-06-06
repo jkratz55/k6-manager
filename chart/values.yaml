@@ -113,6 +113,8 @@ httproute:
 k6:
   # defaultRunnerImage is the default image used for k6 runners if not specified in the request.
   defaultRunnerImage: "docker.io/grafana/k6:latest"
+  # defaultStarterImage is the default image used for the k6 starter pod.
+  defaultStarterImage: ""
   # cleanupInterval is how often the background cleanup worker runs.
   cleanupInterval: "1h"
   # testRetention is how long tests are kept before being cleaned up.
