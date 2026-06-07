@@ -79,8 +79,12 @@ export default function () {
         scriptFile: creationMethod === 'upload' ? scriptFile : null,
       };
 
-      await createTest(submissionData);
-      navigate('/');
+      const result = await createTest(submissionData);
+      if (result && result.id) {
+        navigate(`/tests/${result.id}`);
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       console.error(err);
       let errorMsg = 'Failed to create test. Please check your inputs.';

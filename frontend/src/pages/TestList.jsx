@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getTests, deleteTest } from '../api/client';
+import { getTests, deleteTest, rerunTest } from '../api/client';
 import { 
   Search, 
   Filter, 
@@ -12,7 +12,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Play
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Fuse from 'fuse.js';
@@ -65,6 +66,16 @@ const TestList = () => {
       } catch (err) {
         alert('Failed to delete test');
       }
+    }
+  };
+
+  const handleReRun = async (id) => {
+    try {
+      await rerunTest(id);
+      fetchTests(); // Refresh the list
+    } catch (err) {
+      alert('Failed to re-run test');
+      console.error(err);
     }
   };
 
@@ -215,6 +226,13 @@ const TestList = () => {
                         <Link to={`/tests/${test.id}`} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="View Details">
                           <Eye size={18} />
                         </Link>
+                        <button 
+                          onClick={() => handleReRun(test.id)}
+                          className="p-2 text-slate-400 hover:text-green-600 transition-colors"
+                          title="Re-Run"
+                        >
+                          <Play size={18} />
+                        </button>
                         <button 
                           onClick={() => handleDelete(test.id)}
                           className="p-2 text-slate-400 hover:text-red-600 transition-colors"

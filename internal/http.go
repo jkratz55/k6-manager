@@ -21,6 +21,7 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	api.GET("/tests", h.getTests)
 	api.GET("/tests/:id", h.getTest)
 	api.POST("/tests", h.createTest)
+	api.POST("/tests/:id/rerun", h.rerunTest)
 	api.DELETE("/tests/:id", h.deleteTest)
 }
 
@@ -60,7 +61,19 @@ func (h *Handler) createTest(c *echo.Context) error {
 	}
 
 	c.Response().Header().Set(echo.HeaderLocation, fmt.Sprintf("/api/tests/%s", res))
-	return c.NoContent(http.StatusCreated)
+	return c.JSON(http.StatusCreated, map[string]string{"id": res})
+}
+
+func (h *Handler) rerunTest(c *echo.Context) error {
+	id := c.Param("id")
+	res, err := h.service.ReRunTest(c.Request().Context(), id)
+	if err != nil {
+		Logger().Error("Failed to rerun test", slog.String("id", id), slog.Any("error", err))
+		return InternalServerError()
+	}
+
+	c.Response().Header().Set(echo.HeaderLocation, fmt.Sprintf("/api/tests/%s", res))
+	return c.JSON(http.StatusCreated, map[string]string{"id": res})
 }
 
 func (h *Handler) deleteTest(c *echo.Context) error {

@@ -51,4 +51,9 @@ export const deleteTest = async (id) => {
   return response.data;
 };
 
+export const rerunTest = async (id) => {
+  const response = await client.post(`/tests/${id}/rerun`);
+  return response.data;
+};
+
 export default client;

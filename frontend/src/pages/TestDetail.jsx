@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getTest, deleteTest } from '../api/client';
+import { getTest, deleteTest, rerunTest } from '../api/client';
 import { 
   ArrowLeft, 
   Trash2, 
@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Play
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Editor from '@monaco-editor/react';
@@ -48,6 +49,21 @@ const TestDetail = () => {
       } catch (err) {
         alert('Failed to delete test');
       }
+    }
+  };
+
+  const handleReRun = async () => {
+    try {
+      const result = await rerunTest(id);
+      if (result && result.id) {
+        navigate(`/tests/${result.id}`);
+      } else {
+        // Fallback if ID is not returned for some reason
+        navigate('/');
+      }
+    } catch (err) {
+      alert('Failed to re-run test');
+      console.error(err);
     }
   };
 
@@ -87,7 +103,14 @@ const TestDetail = () => {
           </h1>
           <p className="text-slate-500 font-mono text-sm">{test.id}</p>
         </div>
-        <div className="flex items-start">
+        <div className="flex items-start gap-3">
+          <button 
+            onClick={handleReRun}
+            className="btn btn-primary gap-2"
+          >
+            <Play size={16} />
+            Re-Run
+          </button>
           <button 
             onClick={handleDelete}
             className="btn btn-danger gap-2"

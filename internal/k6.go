@@ -46,9 +46,6 @@ func NewK6Service(
 }
 
 func (k *K6Service) CreateTest(ctx context.Context, req CreateTestRequest) (string, error) {
-	name := generateName(req.Name)
-	namespace := k.conf.Namespace
-
 	file, err := req.Script.Open()
 	if err != nil {
 		return "", fmt.Errorf("read script: %w", err)
@@ -59,7 +56,34 @@ func (k *K6Service) CreateTest(ctx context.Context, req CreateTestRequest) (stri
 		return "", fmt.Errorf("read script: %w", err)
 	}
 
-	cm := buildConfigMap(name, namespace, string(script))
+	return k.createTestInternal(ctx, req.Name, req.Parallelism, req.RunnerImage, req.Args, req.EnvVars, string(script))
+}
+
+func (k *K6Service) ReRunTest(ctx context.Context, id string) (string, error) {
+	test, err := k.GetTest(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("get test %s: %w", id, err)
+	}
+
+	// Remove the unique ID suffix from the name to generate a new one
+	// Names are like "mytest-8charid"
+	baseName := test.Name
+	if len(baseName) > 9 && baseName[len(baseName)-9] == '-' {
+		baseName = baseName[:len(baseName)-9]
+	}
+
+	if test.ScriptContent == "" {
+		return "", fmt.Errorf("script content for test %s is not available", id)
+	}
+
+	return k.createTestInternal(ctx, baseName, test.Parallelism, test.RunnerImage, test.Args, test.EnvVars, test.ScriptContent)
+}
+
+func (k *K6Service) createTestInternal(ctx context.Context, nameBase string, parallelism int, runnerImage string, args string, envVars map[string]string, script string) (string, error) {
+	name := generateName(nameBase)
+	namespace := k.conf.Namespace
+
+	cm := buildConfigMap(name, namespace, script)
 	if _, err := k.client.CoreV1().
 		ConfigMaps(namespace).
 		Create(ctx, cm, metav1.CreateOptions{}); err != nil {
@@ -68,8 +92,8 @@ func (k *K6Service) CreateTest(ctx context.Context, req CreateTestRequest) (stri
 
 	Logger().Info(fmt.Sprintf("Created configmap %s/%s", namespace, name))
 
-	tr := buildTestRun(req, name, namespace, k.conf.DefaultRunnerImage, k.conf.DefaultStarterImage)
-	_, err = k.dynamicClient.
+	tr := buildTestRun(name, namespace, parallelism, runnerImage, args, envVars, k.conf.DefaultRunnerImage, k.conf.DefaultStarterImage)
+	_, err := k.dynamicClient.
 		Resource(TestRunGVR).
 		Namespace(namespace).
 		Create(ctx, tr, metav1.CreateOptions{})
@@ -187,6 +211,21 @@ func mapToTestStatus(item *unstructured.Unstructured) *TestStatus {
 	parallelism, _, _ := unstructured.NestedInt64(item.Object, "spec", "parallelism")
 	configMap, _, _ := unstructured.NestedString(item.Object, "spec", "script", "configMap", "name")
 	scriptFile, _, _ := unstructured.NestedString(item.Object, "spec", "script", "configMap", "file")
+	runnerImage, _, _ := unstructured.NestedString(item.Object, "spec", "runner", "image")
+	args, _, _ := unstructured.NestedString(item.Object, "spec", "arguments")
+
+	envVars := make(map[string]string)
+	if env, ok, _ := unstructured.NestedSlice(item.Object, "spec", "runner", "env"); ok {
+		for _, e := range env {
+			if m, ok := e.(map[string]any); ok {
+				name, _, _ := unstructured.NestedString(m, "name")
+				value, _, _ := unstructured.NestedString(m, "value")
+				if name != "" {
+					envVars[name] = value
+				}
+			}
+		}
+	}
 
 	return &TestStatus{
 		ID:          item.GetName(),
@@ -198,6 +237,9 @@ func mapToTestStatus(item *unstructured.Unstructured) *TestStatus {
 		FinishedAt:  extractFinishedAt(item),
 		ConfigMap:   configMap,
 		Script:      scriptFile,
+		RunnerImage: runnerImage,
+		Args:        args,
+		EnvVars:     envVars,
 	}
 }
 
@@ -242,20 +284,18 @@ func buildConfigMap(name, namespace, script string) *corev1.ConfigMap {
 	}
 }
 
-func buildTestRun(req CreateTestRequest, name, namespace, defaultImage, defaultStarterImage string) *unstructured.Unstructured {
-	parallelism := req.Parallelism
+func buildTestRun(name, namespace string, parallelism int, runnerImage, args string, envVarsMap map[string]string, defaultImage, defaultStarterImage string) *unstructured.Unstructured {
 	if parallelism <= 0 {
 		parallelism = 1
 	}
 
-	runnerImage := req.RunnerImage
 	if runnerImage == "" {
 		runnerImage = defaultImage
 	}
 
 	// Build env var list
 	envVars := []any{}
-	for k, v := range req.EnvVars {
+	for k, v := range envVarsMap {
 		envVars = append(envVars, map[string]any{
 			"name":  k,
 			"value": v,
@@ -282,8 +322,8 @@ func buildTestRun(req CreateTestRequest, name, namespace, defaultImage, defaultS
 		}
 	}
 
-	if req.Args != "" {
-		spec["arguments"] = req.Args
+	if args != "" {
+		spec["arguments"] = args
 	}
 
 	return &unstructured.Unstructured{
