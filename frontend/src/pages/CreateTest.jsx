@@ -159,7 +159,7 @@ export default function () {
                 value={formData.runnerImage}
                 onChange={handleInputChange}
               />
-              <p className="text-xs text-slate-400">Docker image to use for k6 runners</p>
+              <p className="text-xs text-slate-400">Docker image to use for k6 runners. If left empty, the system default image will be used.</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700" htmlFor="args">Additional k6 Args</label>

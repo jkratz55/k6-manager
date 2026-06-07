@@ -19,7 +19,7 @@ export const createTest = async (testData) => {
   const formData = new FormData();
   formData.append('name', testData.name);
   formData.append('parallelism', testData.parallelism);
-  formData.append('runnerImage', testData.runnerImage || 'grafana/k6:latest');
+  formData.append('runnerImage', testData.runnerImage);
   
   if (testData.scriptFile) {
     formData.append('script', testData.scriptFile);
