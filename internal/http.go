@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -80,6 +81,9 @@ func (h *Handler) rerunTest(c *echo.Context) error {
 func (h *Handler) stopTest(c *echo.Context) error {
 	id := c.Param("id")
 	if err := h.service.StopTest(c.Request().Context(), id); err != nil {
+		if errors.Is(err, ErrTestFinished) {
+			return Conflict(err.Error())
+		}
 		Logger().Error("Failed to stop test", slog.String("id", id), slog.Any("error", err))
 		return InternalServerError()
 	}

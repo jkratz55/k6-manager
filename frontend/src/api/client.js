@@ -56,4 +56,9 @@ export const rerunTest = async (id) => {
   return response.data;
 };
 
+export const stopTest = async (id) => {
+  const response = await client.post(`/tests/${id}/stop`);
+  return response.data;
+};
+
 export default client;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getTests, deleteTest, rerunTest } from '../api/client';
+import { getTests, deleteTest, rerunTest, stopTest } from '../api/client';
 import { 
   Search, 
   Filter, 
@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Play
+  Play,
+  Square
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Fuse from 'fuse.js';
@@ -76,6 +77,18 @@ const TestList = () => {
     } catch (err) {
       alert('Failed to re-run test');
       console.error(err);
+    }
+  };
+
+  const handleStop = async (id) => {
+    if (window.confirm('Are you sure you want to stop this test?')) {
+      try {
+        await stopTest(id);
+        fetchTests(); // Refresh the list
+      } catch (err) {
+        alert('Failed to stop test');
+        console.error(err);
+      }
     }
   };
 
@@ -233,6 +246,15 @@ const TestList = () => {
                         >
                           <Play size={18} />
                         </button>
+                        {test.phase?.toLowerCase() === 'running' && (
+                          <button 
+                            onClick={() => handleStop(test.id)}
+                            className="p-2 text-slate-400 hover:text-orange-600 transition-colors"
+                            title="Stop Test"
+                          >
+                            <Square size={18} />
+                          </button>
+                        )}
                         <button 
                           onClick={() => handleDelete(test.id)}
                           className="p-2 text-slate-400 hover:text-red-600 transition-colors"

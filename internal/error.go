@@ -68,3 +68,15 @@ func InternalServerError() ErrorResponse {
 		Errors:   nil,
 	}
 }
+
+func Conflict(detail string) ErrorResponse {
+	return ErrorResponse{
+		Type:     "about:blank",
+		Title:    "Conflict",
+		Status:   http.StatusConflict,
+		Detail:   detail,
+		Instance: "",
+		TraceID:  "",
+		Errors:   nil,
+	}
+}

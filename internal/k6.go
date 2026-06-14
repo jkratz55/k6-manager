@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,11 +18,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var TestRunGVR = schema.GroupVersionResource{
-	Group:    "k6.io",
-	Version:  "v1alpha1",
-	Resource: "testruns",
-}
+var (
+	TestRunGVR = schema.GroupVersionResource{
+		Group:    "k6.io",
+		Version:  "v1alpha1",
+		Resource: "testruns",
+	}
+
+	ErrTestFinished = errors.New("test is already finished")
+)
 
 const (
 	scriptFileName = "test.js"
@@ -157,10 +162,20 @@ func (k *K6Service) GetTest(ctx context.Context, id string) (*TestStatus, error)
 func (k *K6Service) StopTest(ctx context.Context, id string) error {
 	namespace := k.conf.Namespace
 
+	// Check if the test is already finished before trying to stop it
+	test, err := k.GetTest(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get test %s: %w", id, err)
+	}
+
+	if isTestFinished(test.Phase) {
+		return fmt.Errorf("%w: phase is %s", ErrTestFinished, test.Phase)
+	}
+
 	// We'll delete all pods that have the label k6_cr matching the TestRun name.
 	// This is the most reliable way to stop the load as requested.
 	labelSelector := fmt.Sprintf("k6_cr=%s", id)
-	err := k.client.CoreV1().Pods(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+	err = k.client.CoreV1().Pods(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
 		LabelSelector: labelSelector,
 	})
 	if err != nil {

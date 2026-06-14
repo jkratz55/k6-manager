@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getTest, deleteTest, rerunTest } from '../api/client';
+import { getTest, deleteTest, rerunTest, stopTest } from '../api/client';
 import { 
   ArrowLeft, 
   Trash2, 
@@ -14,7 +14,8 @@ import {
   AlertCircle,
   Loader2,
   ExternalLink,
-  Play
+  Play,
+  Square
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Editor from '@monaco-editor/react';
@@ -67,6 +68,20 @@ const TestDetail = () => {
     }
   };
 
+  const handleStop = async () => {
+    if (window.confirm('Are you sure you want to stop this test?')) {
+      try {
+        await stopTest(id);
+        // Refresh test details to show updated phase (though it might take a moment to reflect in k8s)
+        const data = await getTest(id);
+        setTest(data);
+      } catch (err) {
+        alert('Failed to stop test');
+        console.error(err);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -104,6 +119,15 @@ const TestDetail = () => {
           <p className="text-slate-500 font-mono text-sm">{test.id}</p>
         </div>
         <div className="flex items-start gap-3">
+          {test.phase === 'Running' && (
+            <button 
+              onClick={handleStop}
+              className="btn bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200 gap-2"
+            >
+              <Square size={16} />
+              Stop Test
+            </button>
+          )}
           <button 
             onClick={handleReRun}
             className="btn btn-primary gap-2"
