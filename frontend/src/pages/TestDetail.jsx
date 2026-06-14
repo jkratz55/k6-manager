@@ -82,6 +82,20 @@ const TestDetail = () => {
     }
   };
 
+  const isFinished = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'succeeded':
+      case 'completed':
+      case 'finished':
+      case 'failed':
+      case 'error':
+      case 'errored':
+        return true;
+      default:
+        return false;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -112,14 +126,14 @@ const TestDetail = () => {
           </Link>
           <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
             {test.name}
-            {test.phase === 'Succeeded' && <CheckCircle2 className="text-green-500" size={28} />}
-            {test.phase === 'Failed' && <AlertCircle className="text-red-500" size={28} />}
-            {test.phase === 'Running' && <Loader2 className="text-blue-500 animate-spin" size={28} />}
+            {isFinished(test.phase) && (test.phase?.toLowerCase() === 'succeeded' || test.phase?.toLowerCase() === 'completed' || test.phase?.toLowerCase() === 'finished') && <CheckCircle2 className="text-green-500" size={28} />}
+            {isFinished(test.phase) && (test.phase?.toLowerCase() === 'failed' || test.phase?.toLowerCase() === 'error' || test.phase?.toLowerCase() === 'errored') && <AlertCircle className="text-red-500" size={28} />}
+            {!isFinished(test.phase) && <Loader2 className="text-blue-500 animate-spin" size={28} />}
           </h1>
           <p className="text-slate-500 font-mono text-sm">{test.id}</p>
         </div>
         <div className="flex items-start gap-3">
-          {test.phase === 'Running' && (
+          {!isFinished(test.phase) && (
             <button 
               onClick={handleStop}
               className="btn bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200 gap-2"
@@ -154,9 +168,9 @@ const TestDetail = () => {
             <div className="flex justify-between">
               <span className="text-slate-600">Phase</span>
               <span className={`font-semibold ${
-                test.phase === 'Succeeded' ? 'text-green-600' : 
-                test.phase === 'Failed' ? 'text-red-600' : 
-                test.phase === 'Running' ? 'text-blue-600' : 'text-slate-900'
+                (test.phase?.toLowerCase() === 'succeeded' || test.phase?.toLowerCase() === 'completed' || test.phase?.toLowerCase() === 'finished') ? 'text-green-600' : 
+                (test.phase?.toLowerCase() === 'failed' || test.phase?.toLowerCase() === 'error' || test.phase?.toLowerCase() === 'errored') ? 'text-red-600' : 
+                !isFinished(test.phase) ? 'text-blue-600' : 'text-slate-900'
               }`}>{test.phase}</span>
             </div>
             <div className="flex justify-between">

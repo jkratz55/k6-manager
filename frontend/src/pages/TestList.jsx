@@ -23,11 +23,17 @@ const StatusBadge = ({ status }) => {
   switch (status?.toLowerCase()) {
     case 'succeeded':
     case 'completed':
+    case 'finished':
       return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircle2 size={12} /> Succeeded</span>;
     case 'failed':
+    case 'error':
+    case 'errored':
       return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><AlertCircle size={12} /> Failed</span>;
     case 'running':
-      return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><Loader2 size={12} className="animate-spin" /> Running</span>;
+    case 'started':
+    case 'created':
+    case 'initialization':
+      return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><Loader2 size={12} className="animate-spin" /> {status}</span>;
     default:
       return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800"><Clock size={12} /> {status || 'Unknown'}</span>;
   }
@@ -89,6 +95,20 @@ const TestList = () => {
         alert('Failed to stop test');
         console.error(err);
       }
+    }
+  };
+
+  const isFinished = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'succeeded':
+      case 'completed':
+      case 'finished':
+      case 'failed':
+      case 'error':
+      case 'errored':
+        return true;
+      default:
+        return false;
     }
   };
 
@@ -246,7 +266,7 @@ const TestList = () => {
                         >
                           <Play size={18} />
                         </button>
-                        {test.phase?.toLowerCase() === 'running' && (
+                        {!isFinished(test.phase) && (
                           <button 
                             onClick={() => handleStop(test.id)}
                             className="p-2 text-slate-400 hover:text-orange-600 transition-colors"

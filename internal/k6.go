@@ -389,9 +389,9 @@ func isTestFinished(phase string) bool {
 func extractPhase(obj *unstructured.Unstructured) string {
 	phase, _, _ := unstructured.NestedString(obj.Object, "status", "stage")
 	if phase == "" {
-		phase = "unknown"
+		phase = "created"
 	}
-	return phase
+	return strings.ToLower(phase)
 }
 
 func extractFinishedAt(obj *unstructured.Unstructured) string {
