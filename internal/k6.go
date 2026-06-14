@@ -154,6 +154,26 @@ func (k *K6Service) GetTest(ctx context.Context, id string) (*TestStatus, error)
 	return status, nil
 }
 
+func (k *K6Service) StopTest(ctx context.Context, id string) error {
+	namespace := k.conf.Namespace
+
+	// We'll delete all pods that have the label k6_cr matching the TestRun name.
+	// This is the most reliable way to stop the load as requested.
+	labelSelector := fmt.Sprintf("k6_cr=%s", id)
+	err := k.client.CoreV1().Pods(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		return fmt.Errorf("stop test (delete pods) %s/%s: %w", namespace, id, err)
+	}
+
+	Logger().Info("Stopped test by deleting pods",
+		slog.String("id", id),
+		slog.String("labelSelector", labelSelector))
+
+	return nil
+}
+
 func (k *K6Service) DeleteTest(ctx context.Context, id string) error {
 	namespace := k.conf.Namespace
 

@@ -22,6 +22,7 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	api.GET("/tests/:id", h.getTest)
 	api.POST("/tests", h.createTest)
 	api.POST("/tests/:id/rerun", h.rerunTest)
+	api.POST("/tests/:id/stop", h.stopTest)
 	api.DELETE("/tests/:id", h.deleteTest)
 }
 
@@ -74,6 +75,15 @@ func (h *Handler) rerunTest(c *echo.Context) error {
 
 	c.Response().Header().Set(echo.HeaderLocation, fmt.Sprintf("/api/tests/%s", res))
 	return c.JSON(http.StatusCreated, map[string]string{"id": res})
+}
+
+func (h *Handler) stopTest(c *echo.Context) error {
+	id := c.Param("id")
+	if err := h.service.StopTest(c.Request().Context(), id); err != nil {
+		Logger().Error("Failed to stop test", slog.String("id", id), slog.Any("error", err))
+		return InternalServerError()
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *Handler) deleteTest(c *echo.Context) error {
