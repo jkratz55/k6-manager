@@ -5,9 +5,41 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/labstack/echo/v5"
 )
+
+const envVarFormPrefix = "envVars["
+
+// parseFormEnvVars extracts environment variables submitted as bracket-keyed
+// form fields (e.g. "envVars[FOO]=bar") into a map. Echo's default binder
+// cannot populate a map[string]string struct field, so these fields must be
+// parsed out of the form manually. Returns nil when no matching fields exist so
+// callers can distinguish "no form-supplied env vars" from an empty map and
+// avoid clobbering values bound from a JSON body.
+func parseFormEnvVars(values url.Values) map[string]string {
+	var envVars map[string]string
+	for key, vals := range values {
+		if !strings.HasPrefix(key, envVarFormPrefix) || !strings.HasSuffix(key, "]") {
+			continue
+		}
+		name := key[len(envVarFormPrefix) : len(key)-1]
+		if name == "" {
+			continue
+		}
+		value := ""
+		if len(vals) > 0 {
+			value = vals[0]
+		}
+		if envVars == nil {
+			envVars = make(map[string]string)
+		}
+		envVars[name] = value
+	}
+	return envVars
+}
 
 type Handler struct {
 	service *K6Service
@@ -50,6 +82,16 @@ func (h *Handler) createTest(c *echo.Context) error {
 	var req CreateTestRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequest()
+	}
+
+	// Echo's binder cannot populate the EnvVars map[string]string field, so
+	// parse the bracket-keyed env var form fields ourselves. Only overwrite
+	// when the form actually carried env vars to preserve values bound from a
+	// JSON request body.
+	if values, err := c.FormValues(); err == nil {
+		if envVars := parseFormEnvVars(values); envVars != nil {
+			req.EnvVars = envVars
+		}
 	}
 
 	if err := c.Validate(req); err != nil {

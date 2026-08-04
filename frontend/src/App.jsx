@@ -32,7 +32,7 @@ const AppLayout = ({ children }) => {
       </main>
       <footer className="bg-white border-t border-slate-200 py-6">
         <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
-          &copy; {new Date().getFullYear()} k6 Manager - Professional Load Testing
+          &copy; {new Date().getFullYear()} k6 Manager
         </div>
       </footer>
     </div>
