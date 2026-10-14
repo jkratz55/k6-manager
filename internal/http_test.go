@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v5"
@@ -150,4 +151,131 @@ func multipartBody(t *testing.T, fields map[string]string) (*bytes.Buffer, strin
 		t.Fatalf("close writer: %v", err)
 	}
 	return &buf, w.FormDataContentType()
+}
+
+func TestParseFormSecretEnvVars(t *testing.T) {
+	got := parseFormSecretEnvVars(url.Values{
+		"secretEnvVars[TOKEN]":  {"api-creds/token"},
+		"secretEnvVars[BROKEN]": {"no-key"},
+		"envVars[NOT_A_SECRET]": {"x"},
+	})
+	want := map[string]SecretKeyRef{
+		"TOKEN":  {Name: "api-creds", Key: "token"},
+		"BROKEN": {Name: "no-key", Key: ""},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d entries, got %v", len(want), got)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s: expected %+v, got %+v", k, v, got[k])
+		}
+	}
+}
+
+// newTestServer wires the real routes, validator and error handler around a
+// K6Service backed by fake Kubernetes clients.
+func newTestServer(t *testing.T) *echo.Echo {
+	t.Helper()
+	svc, _, _ := newTestService(t, nil, testRunObject("done-12345678", "finished"))
+	e := echo.New()
+	e.Validator = &Validator{}
+	e.HTTPErrorHandler = ProblemDetailsErrorHandler
+	NewHandler(svc, 5).RegisterRoutes(e)
+	return e
+}
+
+func serve(e *echo.Echo, req *http.Request) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestHandlerStatusCodes(t *testing.T) {
+	e := newTestServer(t)
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		want   int
+	}{
+		{"get missing test", http.MethodGet, "/api/tests/missing", http.StatusNotFound},
+		{"stop missing test", http.MethodPost, "/api/tests/missing/stop", http.StatusNotFound},
+		{"rerun missing test", http.MethodPost, "/api/tests/missing/rerun", http.StatusNotFound},
+		{"rerun test without script", http.MethodPost, "/api/tests/done-12345678/rerun", http.StatusConflict},
+		{"stop finished test", http.MethodPost, "/api/tests/done-12345678/stop", http.StatusConflict},
+		{"delete missing test is idempotent", http.MethodDelete, "/api/tests/missing", http.StatusNoContent},
+		{"unknown route", http.MethodGet, "/api/nope", http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := serve(e, httptest.NewRequest(tt.method, tt.path, nil))
+			if rec.Code != tt.want {
+				t.Errorf("expected %d, got %d: %s", tt.want, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestCreateTestValidation(t *testing.T) {
+	e := newTestServer(t)
+
+	t.Run("rejects parallelism above the configured maximum", func(t *testing.T) {
+		body, contentType := multipartBody(t, map[string]string{"name": "big", "parallelism": "6"})
+		req := httptest.NewRequest(http.MethodPost, "/api/tests", body)
+		req.Header.Set(echo.HeaderContentType, contentType)
+		rec := serve(e, req)
+		if rec.Code != http.StatusUnprocessableEntity || !bytes.Contains(rec.Body.Bytes(), []byte(`"parallelism"`)) {
+			t.Errorf("expected 422 with a parallelism error, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("rejects malformed secret references", func(t *testing.T) {
+		body, contentType := multipartBody(t, map[string]string{
+			"name": "s", "parallelism": "1", "secretEnvVars[TOKEN]": "Not_A_Valid_Name/key",
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/tests", body)
+		req.Header.Set(echo.HeaderContentType, contentType)
+		rec := serve(e, req)
+		if rec.Code != http.StatusUnprocessableEntity || !bytes.Contains(rec.Body.Bytes(), []byte(`"secretEnvVars"`)) {
+			t.Errorf("expected 422 with a secretEnvVars error, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("rejects oversized bodies", func(t *testing.T) {
+		body, contentType := multipartBody(t, map[string]string{
+			"name": "huge", "parallelism": "1", "args": strings.Repeat("x", maxRequestBytes),
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/tests", body)
+		req.Header.Set(echo.HeaderContentType, contentType)
+		rec := serve(e, req)
+		if rec.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("expected 413, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("creates a valid test", func(t *testing.T) {
+		body, contentType := multipartBody(t, map[string]string{
+			"name": "ok", "parallelism": "2", "secretEnvVars[TOKEN]": "api-creds/token",
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/tests", body)
+		req.Header.Set(echo.HeaderContentType, contentType)
+		rec := serve(e, req)
+		if rec.Code != http.StatusCreated {
+			t.Errorf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
+func TestScriptSizeValidation(t *testing.T) {
+	req := CreateTestRequest{
+		Name:        "big",
+		Parallelism: 1,
+		Script:      &multipart.FileHeader{Filename: "script.js", Size: maxScriptBytes + 1},
+	}
+	errs := MapValidationErrors(req.Validate())
+	if len(errs["script"]) == 0 {
+		t.Fatalf("expected a script size error, got %v", errs)
+	}
 }

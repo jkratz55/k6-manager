@@ -12,6 +12,7 @@ type AppConfig struct {
 	Namespace           string        `env:"K6_NAMESPACE, default=k6"`
 	DefaultRunnerImage  string        `env:"K6_DEFAULT_RUNNER_IMAGE, default=docker.io/grafana/k6:2.0.0"`
 	DefaultStarterImage string        `env:"K6_DEFAULT_STARTER_IMAGE"`
+	MaxParallelism      int           `env:"K6_MAX_PARALLELISM, default=20"`
 	CleanupInterval     time.Duration `env:"CLEANUP_INTERVAL, default=1h"`
 	TestRetention       time.Duration `env:"TEST_RETENTION, default=168h"`
 }

@@ -14,15 +14,16 @@ func TestBuildTestRun(t *testing.T) {
 		"TOKEN":    "secret",
 	}
 
-	tr := buildTestRun(name, namespace, 2, "my-runner:latest", "--vus 10", envVars, defaultRunnerImage, defaultStarterImage)
+	spec := testSpec{parallelism: 2, runnerImage: "my-runner:latest", args: "--vus 10", envVars: envVars}
+	tr := buildTestRun(name, namespace, spec, defaultRunnerImage, defaultStarterImage)
 
 	if tr.GetName() != name {
 		t.Errorf("expected name %s, got %s", name, tr.GetName())
 	}
 
-	spec := tr.Object["spec"].(map[string]any)
+	trSpec := tr.Object["spec"].(map[string]any)
 
-	starter, ok := spec["starter"].(map[string]any)
+	starter, ok := trSpec["starter"].(map[string]any)
 	if !ok {
 		t.Fatal("expected starter field in spec")
 	}
@@ -31,7 +32,7 @@ func TestBuildTestRun(t *testing.T) {
 		t.Errorf("expected starter image %s, got %s", defaultStarterImage, starter["image"])
 	}
 
-	runner := spec["runner"].(map[string]any)
+	runner := trSpec["runner"].(map[string]any)
 	if runner["image"] != "my-runner:latest" {
 		t.Errorf("expected runner image %s, got %s", "my-runner:latest", runner["image"])
 	}
@@ -53,7 +54,7 @@ func TestBuildTestRunNoStarter(t *testing.T) {
 	defaultRunnerImage := "docker.io/grafana/k6:latest"
 	defaultStarterImage := ""
 
-	tr := buildTestRun(name, namespace, 2, "", "", nil, defaultRunnerImage, defaultStarterImage)
+	tr := buildTestRun(name, namespace, testSpec{parallelism: 2}, defaultRunnerImage, defaultStarterImage)
 
 	spec := tr.Object["spec"].(map[string]any)
 

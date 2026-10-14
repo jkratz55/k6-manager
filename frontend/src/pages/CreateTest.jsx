@@ -1,17 +1,33 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { createTest } from '../api/client';
-import { 
-  ArrowLeft, 
-  Save, 
-  Upload, 
-  Code, 
-  Plus, 
+import {
+  AlertCircle,
+  ArrowLeft,
+  Save,
+  Upload,
+  Code,
+  Plus,
   X,
   Info,
   Loader2
 } from 'lucide-react';
-import Editor from '@monaco-editor/react';
+import CodeEditor from '../components/CodeEditor';
+import { errorMessage } from '../lib/status';
+
+// Mirrors the backend limit: scripts are stored in a ConfigMap, which
+// Kubernetes caps at 1MiB including metadata.
+const MAX_SCRIPT_BYTES = 1000 * 1000;
+
+let nextEnvVarRowId = 0;
+const newEnvVarRow = () => ({
+  id: nextEnvVarRowId++,
+  type: 'value', // 'value' or 'secret'
+  key: '',
+  value: '',
+  secretName: '',
+  secretKey: '',
+});
 
 const CreateTest = () => {
   const navigate = useNavigate();
@@ -40,41 +56,54 @@ export default function () {
 }`);
   
   const [scriptFile, setScriptFile] = useState(null);
-  const [envVars, setEnvVars] = useState([{ key: '', value: '' }]);
+  const [envVars, setEnvVars] = useState(() => [newEnvVarRow()]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleEnvVarChange = (index, field, value) => {
-    const newEnvVars = [...envVars];
-    newEnvVars[index][field] = value;
-    setEnvVars(newEnvVars);
+  const handleEnvVarChange = (id, field, value) => {
+    setEnvVars(rows => rows.map(row => (row.id === id ? { ...row, [field]: value } : row)));
   };
 
   const addEnvVar = () => {
-    setEnvVars([...envVars, { key: '', value: '' }]);
+    setEnvVars(rows => [...rows, newEnvVarRow()]);
   };
 
-  const removeEnvVar = (index) => {
-    setEnvVars(envVars.filter((_, i) => i !== index));
+  const removeEnvVar = (id) => {
+    setEnvVars(rows => rows.filter(row => row.id !== id));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
+    const scriptBytes = creationMethod === 'editor'
+      ? new Blob([scriptContent]).size
+      : scriptFile?.size ?? 0;
+    if (scriptBytes > MAX_SCRIPT_BYTES) {
+      setError(`The script is ${scriptBytes.toLocaleString()} bytes; the maximum is ${MAX_SCRIPT_BYTES.toLocaleString()} bytes.`);
+      return;
+    }
+
+    setLoading(true);
     try {
       const envVarsMap = {};
+      const secretEnvVarsMap = {};
       envVars.forEach(ev => {
-        if (ev.key) envVarsMap[ev.key] = ev.value;
+        if (!ev.key) return;
+        if (ev.type === 'secret') {
+          secretEnvVarsMap[ev.key] = { name: ev.secretName, key: ev.secretKey };
+        } else {
+          envVarsMap[ev.key] = ev.value;
+        }
       });
 
       const submissionData = {
         ...formData,
         envVars: envVarsMap,
+        secretEnvVars: secretEnvVarsMap,
         scriptContent: creationMethod === 'editor' ? scriptContent : null,
         scriptFile: creationMethod === 'upload' ? scriptFile : null,
       };
@@ -87,18 +116,7 @@ export default function () {
       }
     } catch (err) {
       console.error(err);
-      let errorMsg = 'Failed to create test. Please check your inputs.';
-      if (err.response?.data) {
-        const data = err.response.data;
-        if (data.detail) {
-          errorMsg = data.detail;
-        } else if (data.errors) {
-          errorMsg = Object.entries(data.errors)
-            .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
-            .join(' | ');
-        }
-      }
-      setError(errorMsg);
+      setError(errorMessage(err, 'Failed to create test. Please check your inputs.'));
     } finally {
       setLoading(false);
     }
@@ -205,9 +223,8 @@ export default function () {
 
           <div className="card overflow-hidden border-slate-300">
             {creationMethod === 'editor' ? (
-              <Editor
+              <CodeEditor
                 height="400px"
-                defaultLanguage="javascript"
                 value={scriptContent}
                 onChange={(value) => setScriptContent(value)}
                 options={{
@@ -244,25 +261,63 @@ export default function () {
               <Plus size={14} /> Add Variable
             </button>
           </div>
+          <p className="text-xs text-slate-500 flex items-start gap-1.5">
+            <Info size={14} className="shrink-0 mt-0.5" />
+            <span>
+              Use <strong>Secret</strong> for credentials: runner pods read the value from a Kubernetes Secret
+              in the test namespace, so it is never stored in the test definition or shown here.
+            </span>
+          </p>
           <div className="space-y-3">
-            {envVars.map((ev, index) => (
-              <div key={index} className="flex gap-3 items-start">
-                <input 
-                  placeholder="KEY" 
+            {envVars.map((ev) => (
+              <div key={ev.id} className="flex gap-3 items-start">
+                <input
+                  placeholder="KEY"
+                  aria-label="Variable name"
                   className="input flex-1"
                   value={ev.key}
-                  onChange={(e) => handleEnvVarChange(index, 'key', e.target.value)}
+                  onChange={(e) => handleEnvVarChange(ev.id, 'key', e.target.value)}
                 />
-                <input 
-                  placeholder="VALUE" 
-                  className="input flex-1"
-                  value={ev.value}
-                  onChange={(e) => handleEnvVarChange(index, 'value', e.target.value)}
-                />
-                <button 
-                  type="button" 
-                  onClick={() => removeEnvVar(index)}
+                <select
+                  aria-label="Variable source"
+                  className="input w-28 shrink-0"
+                  value={ev.type}
+                  onChange={(e) => handleEnvVarChange(ev.id, 'type', e.target.value)}
+                >
+                  <option value="value">Value</option>
+                  <option value="secret">Secret</option>
+                </select>
+                {ev.type === 'secret' ? (
+                  <>
+                    <input
+                      placeholder="secret-name"
+                      aria-label="Secret name"
+                      className="input flex-1"
+                      value={ev.secretName}
+                      onChange={(e) => handleEnvVarChange(ev.id, 'secretName', e.target.value)}
+                    />
+                    <input
+                      placeholder="key"
+                      aria-label="Secret key"
+                      className="input flex-1"
+                      value={ev.secretKey}
+                      onChange={(e) => handleEnvVarChange(ev.id, 'secretKey', e.target.value)}
+                    />
+                  </>
+                ) : (
+                  <input
+                    placeholder="VALUE"
+                    aria-label="Variable value"
+                    className="input flex-[2]"
+                    value={ev.value}
+                    onChange={(e) => handleEnvVarChange(ev.id, 'value', e.target.value)}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeEnvVar(ev.id)}
                   className="p-2 text-slate-400 hover:text-red-600 transition-colors mt-1"
+                  title="Remove variable"
                 >
                   <X size={20} />
                 </button>

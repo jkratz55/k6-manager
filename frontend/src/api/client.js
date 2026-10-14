@@ -34,6 +34,14 @@ export const createTest = async (testData) => {
     });
   }
 
+  // Secret-backed env vars are sent as "<secret-name>/<key>"; neither part
+  // may contain '/', so the backend can split them unambiguously.
+  if (testData.secretEnvVars) {
+    Object.entries(testData.secretEnvVars).forEach(([key, ref]) => {
+      formData.append(`secretEnvVars[${key}]`, `${ref.name}/${ref.key}`);
+    });
+  }
+
   if (testData.args) {
     formData.append('args', testData.args);
   }

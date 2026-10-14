@@ -61,6 +61,7 @@ The application can be configured using environment variables. When deploying vi
 |----------|-------------|---------|
 | `K6_NAMESPACE` | The Kubernetes namespace where k6 tests will be executed. | `k6` |
 | `K6_DEFAULT_RUNNER_IMAGE` | The default Docker image used for k6 runners. | `docker.io/grafana/k6:latest` |
+| `K6_MAX_PARALLELISM` | The maximum parallelism (runner pods) a single test may request. | `20` |
 | `CLEANUP_INTERVAL` | How often the background cleanup worker runs. | `1h` |
 | `TEST_RETENTION` | How long tests are kept before being automatically deleted. | `168h` |
 

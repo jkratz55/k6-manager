@@ -1,9 +1,18 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
-import { Layout, List, Plus, Activity } from 'lucide-react';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { Plus, Activity, Loader2 } from 'lucide-react';
 import TestList from './pages/TestList';
-import TestDetail from './pages/TestDetail';
-import CreateTest from './pages/CreateTest';
+
+// These pages embed the Monaco editor; load them on demand so the test list
+// doesn't pay for it.
+const TestDetail = lazy(() => import('./pages/TestDetail'));
+const CreateTest = lazy(() => import('./pages/CreateTest'));
+
+const PageFallback = () => (
+  <div className="flex justify-center py-12">
+    <Loader2 className="animate-spin text-blue-600" size={48} />
+  </div>
+);
 
 const AppLayout = ({ children }) => {
   return (
@@ -43,11 +52,13 @@ function App() {
   return (
     <Router>
       <AppLayout>
-        <Routes>
-          <Route path="/" element={<TestList />} />
-          <Route path="/tests/:id" element={<TestDetail />} />
-          <Route path="/create" element={<CreateTest />} />
-        </Routes>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route path="/" element={<TestList />} />
+            <Route path="/tests/:id" element={<TestDetail />} />
+            <Route path="/create" element={<CreateTest />} />
+          </Routes>
+        </Suspense>
       </AppLayout>
     </Router>
   );

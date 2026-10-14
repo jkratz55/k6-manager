@@ -1,0 +1,26 @@
+# VCS and editor state
+.git
+.gitignore
+.idea
+.vscode
+.junie
+.claude
+
+# Host build output and dependencies. The image installs and builds these
+# itself; copying host copies would overlay platform-specific binaries
+# (e.g. darwin esbuild/lightningcss) onto the Linux build.
+frontend/node_modules
+frontend/dist
+vendor
+k6-manager
+
+# Packaged Helm charts and other release artifacts
+*.tgz
+chart
+
+# Not needed to build the image
+example
+*.md
+Dockerfile
+.dockerignore
+Makefile

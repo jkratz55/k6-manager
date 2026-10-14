@@ -1,77 +1,67 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { getTests, deleteTest, rerunTest, stopTest } from '../api/client';
-import { 
-  Search, 
-  Filter, 
-  ArrowUpDown, 
-  MoreVertical, 
-  Trash2, 
-  Eye, 
+import {
+  Search,
+  Filter,
+  ArrowUpDown,
+  Trash2,
+  Eye,
   RefreshCcw,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
   Play,
   Square
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Fuse from 'fuse.js';
+import StatusBadge from '../components/StatusBadge';
+import { STATUS_FILTERS, errorMessage, testStatus } from '../lib/status';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
 
-const StatusBadge = ({ status }) => {
-  switch (status?.toLowerCase()) {
-    case 'succeeded':
-    case 'completed':
-    case 'finished':
-      return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircle2 size={12} /> Succeeded</span>;
-    case 'failed':
-    case 'error':
-    case 'errored':
-      return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><AlertCircle size={12} /> Failed</span>;
-    case 'running':
-    case 'started':
-    case 'created':
-    case 'initialization':
-      return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><Loader2 size={12} className="animate-spin" /> {status}</span>;
-    default:
-      return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800"><Clock size={12} /> {status || 'Unknown'}</span>;
-  }
-};
+// Poll quickly while any test is in flight, and slowly otherwise so tests
+// started elsewhere still show up.
+const ACTIVE_POLL_MS = 5000;
+const IDLE_POLL_MS = 30000;
 
 const TestList = () => {
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState({ key: 'startedAt', direction: 'desc' });
 
-  const fetchTests = async () => {
-    setLoading(true);
+  const loadTests = useCallback(async () => {
     try {
       const data = await getTests();
       setTests(data || []);
       setError(null);
     } catch (err) {
-      setError('Failed to fetch tests');
+      setError(errorMessage(err, 'Failed to fetch tests'));
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchTests();
   }, []);
+
+  const hasActiveTests = tests.some(t => !t.finished);
+  useAutoRefresh(loadTests, hasActiveTests ? ACTIVE_POLL_MS : IDLE_POLL_MS);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadTests();
+    setRefreshing(false);
+  };
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this test?')) {
       try {
         await deleteTest(id);
-        setTests(tests.filter(t => t.id !== id));
+        setTests(prev => prev.filter(t => t.id !== id));
       } catch (err) {
-        alert('Failed to delete test');
+        alert(errorMessage(err, 'Failed to delete test'));
+        console.error(err);
       }
     }
   };
@@ -79,9 +69,9 @@ const TestList = () => {
   const handleReRun = async (id) => {
     try {
       await rerunTest(id);
-      fetchTests(); // Refresh the list
+      loadTests();
     } catch (err) {
-      alert('Failed to re-run test');
+      alert(errorMessage(err, 'Failed to re-run test'));
       console.error(err);
     }
   };
@@ -90,25 +80,11 @@ const TestList = () => {
     if (window.confirm('Are you sure you want to stop this test?')) {
       try {
         await stopTest(id);
-        fetchTests(); // Refresh the list
+        loadTests();
       } catch (err) {
-        alert('Failed to stop test');
+        alert(errorMessage(err, 'Failed to stop test'));
         console.error(err);
       }
-    }
-  };
-
-  const isFinished = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'succeeded':
-      case 'completed':
-      case 'finished':
-      case 'failed':
-      case 'error':
-      case 'errored':
-        return true;
-      default:
-        return false;
     }
   };
 
@@ -117,7 +93,7 @@ const TestList = () => {
 
     // Status filtering
     if (statusFilter !== 'all') {
-      result = result.filter(t => t.phase?.toLowerCase() === statusFilter.toLowerCase());
+      result = result.filter(t => testStatus(t).category === statusFilter);
     }
 
     // Fuzzy Search
@@ -133,7 +109,7 @@ const TestList = () => {
     result.sort((a, b) => {
       if (!a[sortConfig.key]) return 1;
       if (!b[sortConfig.key]) return -1;
-      
+
       let aVal = a[sortConfig.key];
       let bVal = b[sortConfig.key];
 
@@ -165,12 +141,12 @@ const TestList = () => {
           <h1 className="text-3xl font-bold text-slate-900">Test Runs</h1>
           <p className="text-slate-500">Manage and monitor your k6 load tests</p>
         </div>
-        <button 
-          onClick={fetchTests}
+        <button
+          onClick={handleRefresh}
           className="btn btn-outline gap-2"
-          disabled={loading}
+          disabled={loading || refreshing}
         >
-          <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
+          <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
           Refresh
         </button>
       </div>
@@ -179,9 +155,9 @@ const TestList = () => {
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search by name or ID..." 
+            <input
+              type="text"
+              placeholder="Search by name or ID..."
               className="input pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -190,33 +166,36 @@ const TestList = () => {
           <div className="flex gap-4">
             <div className="relative min-w-[150px]">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <select 
+              <select
                 className="input pl-10 appearance-none"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <option value="all">All Statuses</option>
-                <option value="Running">Running</option>
-                <option value="Succeeded">Succeeded</option>
-                <option value="Failed">Failed</option>
+                {STATUS_FILTERS.map(f => (
+                  <option key={f.value} value={f.value}>{f.label}</option>
+                ))}
               </select>
             </div>
           </div>
         </div>
       </div>
 
-      {loading && tests.length === 0 ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="animate-spin text-blue-600" size={48} />
-        </div>
-      ) : error ? (
+      {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
           {error}
         </div>
-      ) : filteredAndSortedTests.length === 0 ? (
-        <div className="card py-12 text-center">
-          <p className="text-slate-500">No tests found matching your criteria</p>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="animate-spin text-blue-600" size={48} />
         </div>
+      ) : filteredAndSortedTests.length === 0 ? (
+        !error && (
+          <div className="card py-12 text-center">
+            <p className="text-slate-500">No tests found matching your criteria</p>
+          </div>
+        )
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
@@ -249,7 +228,7 @@ const TestList = () => {
                       <div className="text-xs text-slate-500 font-mono">{test.id}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <StatusBadge status={test.phase} />
+                      <StatusBadge test={test} />
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {test.startedAt ? format(new Date(test.startedAt), 'MMM d, HH:mm:ss') : '-'}
@@ -259,15 +238,15 @@ const TestList = () => {
                         <Link to={`/tests/${test.id}`} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="View Details">
                           <Eye size={18} />
                         </Link>
-                        <button 
+                        <button
                           onClick={() => handleReRun(test.id)}
                           className="p-2 text-slate-400 hover:text-green-600 transition-colors"
                           title="Re-Run"
                         >
                           <Play size={18} />
                         </button>
-                        {!isFinished(test.phase) && (
-                          <button 
+                        {!test.finished && (
+                          <button
                             onClick={() => handleStop(test.id)}
                             className="p-2 text-slate-400 hover:text-orange-600 transition-colors"
                             title="Stop Test"
@@ -275,7 +254,7 @@ const TestList = () => {
                             <Square size={18} />
                           </button>
                         )}
-                        <button 
+                        <button
                           onClick={() => handleDelete(test.id)}
                           className="p-2 text-slate-400 hover:text-red-600 transition-colors"
                           title="Delete Test"

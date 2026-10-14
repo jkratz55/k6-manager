@@ -24,6 +24,16 @@ func ProblemDetailsErrorHandler(c *echo.Context, err error) {
 			Status: he.Code,
 			Detail: he.Error(),
 		}
+	} else if code := echo.StatusCode(err); code != 0 {
+		// Echo's sentinel errors (echo.ErrNotFound, echo.ErrMethodNotAllowed,
+		// the body limit's 413, ...) aren't *echo.HTTPError but still carry
+		// a status code.
+		problem = ErrorResponse{
+			Type:   "about:blank",
+			Title:  http.StatusText(code),
+			Status: code,
+			Detail: err.Error(),
+		}
 	} else {
 		problem = InternalServerError()
 	}
@@ -74,6 +84,30 @@ func Conflict(detail string) ErrorResponse {
 		Type:     "about:blank",
 		Title:    "Conflict",
 		Status:   http.StatusConflict,
+		Detail:   detail,
+		Instance: "",
+		TraceID:  "",
+		Errors:   nil,
+	}
+}
+
+func NotFound(detail string) ErrorResponse {
+	return ErrorResponse{
+		Type:     "about:blank",
+		Title:    "Not Found",
+		Status:   http.StatusNotFound,
+		Detail:   detail,
+		Instance: "",
+		TraceID:  "",
+		Errors:   nil,
+	}
+}
+
+func RequestEntityTooLarge(detail string) ErrorResponse {
+	return ErrorResponse{
+		Type:     "about:blank",
+		Title:    "Request Entity Too Large",
+		Status:   http.StatusRequestEntityTooLarge,
 		Detail:   detail,
 		Instance: "",
 		TraceID:  "",

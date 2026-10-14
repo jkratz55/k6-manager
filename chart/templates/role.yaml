@@ -6,9 +6,19 @@ metadata:
   labels:
     {{- include "k6-manager.labels" . | nindent 4 }}
 rules:
+  # Test scripts are stored in ConfigMaps; patch sets the TestRun as owner.
   - apiGroups: [""]
     resources: ["configmaps"]
-    verbs: ["get", "list", "watch", "create", "delete"]
+    verbs: ["get", "list", "watch", "create", "delete", "patch"]
+  # patch records when a test was stopped through k6-manager.
   - apiGroups: ["k6.io"]
     resources: ["testruns"]
-    verbs: ["get", "list", "watch", "create", "delete"]
+    verbs: ["get", "list", "watch", "create", "delete", "patch"]
+  # Stopping a test deletes the pods k6-operator created for it.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "deletecollection"]
+  # Runner Job status is used to tell passed runs from failed ones.
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["list"]

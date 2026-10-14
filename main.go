@@ -42,7 +42,7 @@ func main() {
 
 	frontend.Register(e)
 
-	handler := internal.NewHandler(k6Service)
+	handler := internal.NewHandler(k6Service, config.MaxParallelism)
 	handler.RegisterRoutes(e)
 
 	health := &internal.HealthHandler{}
