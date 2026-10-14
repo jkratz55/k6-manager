@@ -1,5 +1,5 @@
 # Frontend build stage
-FROM node:23-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm install
@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Backend build stage
-FROM golang:1.26-alpine AS builder
+FROM golang:1.27-alpine AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -17,7 +17,7 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o k6-manager main.go
 
 # Final stage
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/static-debian13
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/k6-manager /k6-manager
